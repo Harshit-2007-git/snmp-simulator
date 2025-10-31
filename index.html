@@ -1,0 +1,373 @@
+<!-- Chosen Palette: Calm Harmony (Light gray/white background, slate/gray text, calm blue accents) -->
+<!-- Application Structure Plan: A two-column, responsive layout (flex-col lg:flex-row). The left column (lg:w-1/3) is a dedicated 'Control Panel' with all user inputs (Device Setup, Polling, SET), organized by task. The right column (lg:w-2/3) is the 'Output Display', showing a 'Device Status' grid for visual feedback and a 'SNMP Log' for detailed, timestamped messages. This structure is chosen because it logically separates user actions (inputs) from simulation results (outputs), providing a clear and intuitive dashboard-like experience. The user flow is sequential: 1. Setup, 2. Start, 3. Monitor, 4. (Optional) Intervene. -->
+<!-- Visualization & Content Choices: 
+- Report Info: Number of devices, IPs, OIDs, interval -> Goal: User Input -> Viz/Presentation: HTML Forms (inputs, buttons) -> Interaction: User types and clicks. -> Justification: Standard, most effective method for configuration.
+- Report Info: "Device Status" (implicit) -> Goal: Inform/Feedback -> Viz/Presentation: HTML/Tailwind CSS Grid (dynamic cards) -> Interaction: JS dynamically adds device cards on simulation start. Clicking a card logs that device's MIB. -> Justification: Provides immediate visual confirmation of Step 1 and an interactive way to inspect agents.
+- Report Info: GET, SET, TRAP messages with timestamps -> Goal: Output/Inform -> Viz/Presentation: A scrolling <pre> tag (HTML) dynamically populated by JS. -> Interaction: A JS `logMessage` function prepends new, color-coded log entries. -> Justification: A live, timestamped log is the most direct and clear way to represent sequential network events.
+-->
+<!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SNMP Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        #log-output::-webkit-scrollbar {
+            width: 8px;
+        }
+        #log-output::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+        #log-output::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 4px;
+        }
+        #log-output::-webkit-scrollbar-thumb:hover {
+            background: #6b7280;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-900 min-h-screen p-4 sm:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <h1 class="text-3xl font-bold text-center mb-8 text-blue-700">SNMP Simulator</h1>
+
+        <div class="flex flex-col lg:flex-row gap-8">
+
+            <div class="lg:w-1/3 bg-white p-6 rounded-lg shadow-xl space-y-8">
+                
+                <div class="space-y-4">
+                    <h2 class="text-xl font-semibold text-blue-600 border-b border-gray-200 pb-2">1. Device Setup</h2>
+                    <div>
+                        <label for="num-devices" class="block text-sm font-medium text-gray-700">Number of Devices</label>
+                        <input type="number" id="num-devices" value="5" class="mt-1 block w-full bg-gray-50 border-gray-300 rounded-md shadow-sm p-2 text-gray-900 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="manager-ip" class="block text-sm font-medium text-gray-700">Manager IP</label>
+                        <input type="text" id="manager-ip" value="192.168.1.1" class="mt-1 block w-full bg-gray-50 border-gray-300 rounded-md shadow-sm p-2 text-gray-900 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="agent-prefix" class="block text-sm font-medium text-gray-700">Agent IP Prefix</label>
+                        <input type="text" id="agent-prefix" value="192.168.1." class="mt-1 block w-full bg-gray-50 border-gray-300 rounded-md shadow-sm p-2 text-gray-900 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <button id="start-sim-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg transition duration-200 shadow-md">Start Simulation</button>
+                </div>
+
+                <div class="space-y-4">
+                    <h2 class="text-xl font-semibold text-blue-600 border-b border-gray-200 pb-2">2. Polling Configuration</h2>
+                    <div>
+                        <label for="oids-to-poll" class="block text-sm font-medium text-gray-700">OIDs to Poll (one per line)</label>
+                        <textarea id="oids-to-poll" rows="4" class="mt-1 block w-full bg-gray-50 border-gray-300 rounded-md shadow-sm p-2 text-gray-900 focus:ring-blue-500 focus:border-blue-500">1.3.6.1.2.1.1.1.0
+1.3.6.1.2.1.1.3.0
+1.3.6.1.2.1.2.2.1.8.1
+1.3.6.1.2.1.2.2.1.8.2</textarea>
+                    </div>
+                    <div>
+                        <label for="poll-interval" class="block text-sm font-medium text-gray-700">Polling Interval (ms)</label>
+                        <input type="number" id="poll-interval" value="5000" class="mt-1 block w-full bg-gray-50 border-gray-300 rounded-md shadow-sm p-2 text-gray-900 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="net-delay" class="block text-sm font-medium text-gray-700">Network Delay (ms)</label>
+                        <input type="number" id="net-delay" value="150" class="mt-1 block w-full bg-gray-50 border-gray-300 rounded-md shadow-sm p-2 text-gray-900 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <button id="start-poll-btn" class="w-full bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-4 rounded-lg transition duration-200 shadow-md" disabled>Start Polling</button>
+                    <button id="stop-poll-btn" class="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg transition duration-200 shadow-md" disabled>Stop Polling</button>
+                </div>
+
+                <div class="space-y-4">
+                    <h2 class="text-xl font-semibold text-blue-600 border-b border-gray-200 pb-2">3. Manual SET Operation</h2>
+                    <div>
+                        <label for="set-ip" class="block text-sm font-medium text-gray-700">Device IP</label>
+                        <input type="text" id="set-ip" placeholder="e.g., 192.168.1.101" class="mt-1 block w-full bg-gray-50 border-gray-300 rounded-md shadow-sm p-2 text-gray-900 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="set-oid" class="block text-sm font-medium text-gray-700">OID to SET</label>
+                        <input type="text" id="set-oid" value="1.3.6.1.2.1.1.5.0" class="mt-1 block w-full bg-gray-50 border-gray-300 rounded-md shadow-sm p-2 text-gray-900 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label for="set-value" class="block text-sm font-medium text-gray-700">New Value</label>
+                        <input type="text" id="set-value" placeholder="e.g., 'new-router-name'" class="mt-1 block w-full bg-gray-50 border-gray-300 rounded-md shadow-sm p-2 text-gray-900 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <button id="send-set-btn" class="w-full bg-yellow-500 hover:bg-yellow-400 text-gray-900 font-bold py-2 px-4 rounded-lg transition duration-200 shadow-md" disabled>Send SET Request</button>
+                </div>
+            </div>
+
+            <div class="lg:w-2/3 space-y-8">
+                <div>
+                    <h2 class="text-2xl font-semibold text-blue-600 mb-4">Device Status</h2>
+                    <div id="device-status-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                        <div class="text-gray-500 italic">Press "Start Simulation" to create devices.</div>
+                    </div>
+                </div>
+
+                <div>
+                    <h2 class="text-2xl font-semibold text-blue-600 mb-4">SNMP Log</h2>
+                    <pre id="log-output" class="w-full h-96 bg-gray-800 text-sm text-gray-100 rounded-lg shadow-inner p-4 overflow-y-scroll font-mono"></pre>
+                    <button id="clear-log-btn" class="mt-4 bg-gray-500 hover:bg-gray-400 text-white font-bold py-2 px-4 rounded-lg transition duration-200 shadow-md">Clear Log</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const devices = new Map();
+        let managerIP = '';
+        let pollingIntervalId = null;
+
+        const startSimBtn = document.getElementById('start-sim-btn');
+        const startPollBtn = document.getElementById('start-poll-btn');
+        const stopPollBtn = document.getElementById('stop-poll-btn');
+        const sendSetBtn = document.getElementById('send-set-btn');
+        const clearLogBtn = document.getElementById('clear-log-btn');
+        const numDevicesInput = document.getElementById('num-devices');
+        const managerIpInput = document.getElementById('manager-ip');
+        const agentPrefixInput = document.getElementById('agent-prefix');
+        const oidsTextarea = document.getElementById('oids-to-poll');
+        const pollIntervalInput = document.getElementById('poll-interval');
+        const netDelayInput = document.getElementById('net-delay');
+        const setIpInput = document.getElementById('set-ip');
+        const setOidInput = document.getElementById('set-oid');
+        const setValueInput = document.getElementById('set-value');
+        const deviceGrid = document.getElementById('device-status-grid');
+        const logOutput = document.getElementById('log-output');
+
+        class Device {
+            constructor(ip, type) {
+                this.ip = ip;
+                this.type = type;
+                this.startTime = Date.now();
+                this.mib = this.generateSimulatedMib();
+                
+                this.portStatus = {
+                    '1.3.6.1.2.1.2.2.1.8.1': 'up',
+                    '1.3.6.1.2.1.2.2.1.8.2': 'up',
+                };
+            }
+
+            generateSimulatedMib() {
+                const deviceId = this.ip.split('.').pop();
+                return {
+                    '1.3.6.1.2.1.1.1.0': `Simulated ${this.type} v${deviceId}.0`,
+                    '1.3.6.1.2.1.1.2.0': '1.3.6.1.4.1.9999',
+                    '1.3.6.1.2.1.1.3.0': () => (Date.now() - this.startTime) / 10,
+                    '1.3.6.1.2.1.1.5.0': `${this.type.toLowerCase()}-${deviceId}`,
+                    '1.3.6.1.2.1.1.6.0': 'Data Center, 1st Floor',
+                };
+            }
+
+            get(oid) {
+                if (this.mib[oid] && typeof this.mib[oid] === 'function') {
+                    return Math.floor(this.mib[oid]());
+                }
+                
+                if (this.portStatus.hasOwnProperty(oid)) {
+                    return this.portStatus[oid];
+                }
+
+                if (this.mib.hasOwnProperty(oid)) {
+                    return this.mib[oid];
+                }
+
+                return 'Error: No Such Object';
+            }
+
+            set(oid, value) {
+                const writableOids = ['1.3.6.1.2.1.1.5.0', '1.3.6.1.2.1.1.6.0'];
+
+                if (writableOids.includes(oid)) {
+                    this.mib[oid] = value;
+                    return 'SET OK';
+                }
+
+                return 'Error: OID is read-only or does not exist';
+            }
+
+            simulateTrap() {
+                if (Math.random() < 0.1) {
+                    const portOid = '1.3.6.1.2.1.2.2.1.8.2';
+                    const oldStatus = this.portStatus[portOid];
+                    const newStatus = oldStatus === 'up' ? 'down' : 'up';
+                    this.portStatus[portOid] = newStatus;
+
+                    return {
+                        type: 'TRAP',
+                        source: this.ip,
+                        oid: '1.3.6.1.6.3.1.1.5.3',
+                        message: `Port 2 (OID: ${portOid}) changed status to ${newStatus}`
+                    };
+                }
+                return null;
+            }
+        }
+
+        function logMessage(type, source, dest, content) {
+            const timestamp = new Date().toISOString();
+            let colorClass = 'text-gray-300';
+            
+            if (type.startsWith('GET')) colorClass = 'text-blue-300';
+            if (type.startsWith('SET')) colorClass = 'text-yellow-300';
+            if (type.startsWith('TRAP')) colorClass = 'text-red-400 font-bold';
+            if (type.startsWith('SYSTEM')) colorClass = 'text-green-300 font-bold';
+
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = 
+                `<span class="text-gray-500">[${timestamp}]</span> ` +
+                `<span class="w-24 inline-block ${colorClass}">[${type}]</span> ` +
+                `<span class="text-cyan-400">From:</span> ${source} ` +
+                `<span class="text-cyan-400">To:</span> ${dest} | ` +
+                `<span class="${colorClass}">${content}</span>`;
+            
+            logOutput.prepend(logEntry);
+        }
+
+        function getNetworkDelay() {
+            const delay = parseInt(netDelayInput.value, 10);
+            return isNaN(delay) || delay < 0 ? 0 : delay;
+        }
+
+        function updateDeviceGrid(device) {
+            const card = document.createElement('div');
+            card.className = 'bg-white p-3 rounded-lg shadow-md cursor-pointer hover:bg-gray-50 transition duration-150';
+            card.innerHTML = `
+                <div class="font-bold text-blue-600">${device.ip}</div>
+                <div class="text-sm text-gray-600">${device.type}</div>
+            `;
+            card.onclick = () => {
+                logMessage('SYSTEM', 'Manager', 'Manager', `--- MIB for ${device.ip} ---`);
+                for (const [oid, value] of Object.entries(device.mib)) {
+                    const val = typeof value === 'function' ? Math.floor(value()) : value;
+                    logMessage('SYSTEM', 'Manager', 'Manager', `${oid} = ${val}`);
+                }
+                for (const [oid, status] of Object.entries(device.portStatus)) {
+                    logMessage('SYSTEM', 'Manager', 'Manager', `${oid} = ${status}`);
+                }
+                logMessage('SYSTEM', 'Manager', 'Manager', `--- End MIB ---`);
+            };
+            deviceGrid.appendChild(card);
+        }
+
+        function pollDevice(device, oid) {
+            const delay = getNetworkDelay();
+            logMessage('GET', managerIP, device.ip, `Query: ${oid}`);
+
+            setTimeout(() => {
+                const value = device.get(oid);
+                logMessage('GET-RESPONSE', device.ip, managerIP, `OID: ${oid} = ${value}`);
+            }, delay);
+        }
+
+        function startPolling() {
+            if (pollingIntervalId) clearInterval(pollingIntervalId);
+
+            const interval = parseInt(pollIntervalInput.value, 10);
+            if (isNaN(interval) || interval < 500) {
+                logMessage('SYSTEM', 'Manager', 'Manager', 'Error: Invalid polling interval. Must be >= 500ms.');
+                return;
+            }
+
+            const oidsToPoll = oidsTextarea.value.split('\n').map(o => o.trim()).filter(o => o);
+            if (oidsToPoll.length === 0) {
+                logMessage('SYSTEM', 'Manager', 'Manager', 'Error: No OIDs specified to poll.');
+                return;
+            }
+
+            logMessage('SYSTEM', 'Manager', 'Manager', `Starting polling every ${interval}ms...`);
+            stopPollBtn.disabled = false;
+            startPollBtn.disabled = true;
+            startPollBtn.innerText = "Polling...";
+
+            pollingIntervalId = setInterval(() => {
+                for (const [ip, device] of devices.entries()) {
+                    for (const oid of oidsToPoll) {
+                        pollDevice(device, oid);
+                    }
+                    const trap = device.simulateTrap();
+                    if (trap) {
+                        logMessage(trap.type, trap.source, managerIP, trap.message);
+                    }
+                }
+            }, interval);
+        }
+
+        function stopPolling() {
+            if (pollingIntervalId) {
+                clearInterval(pollingIntervalId);
+                pollingIntervalId = null;
+                logMessage('SYSTEM', 'Manager', 'Manager', 'Polling stopped.');
+                stopPollBtn.disabled = true;
+                startPollBtn.disabled = false;
+                startPollBtn.innerText = "Start Polling";
+            }
+        }
+
+        startSimBtn.addEventListener('click', () => {
+            const numDevices = parseInt(numDevicesInput.value, 10);
+            const prefix = agentPrefixInput.value;
+            managerIP = managerIpInput.value;
+
+            devices.clear();
+            deviceGrid.innerHTML = '';
+            stopPolling();
+
+            if (isNaN(numDevices) || numDevices <= 0 || numDevices > 100) {
+                logMessage('SYSTEM', 'Manager', 'Manager', 'Error: Invalid number of devices (1-100).');
+                return;
+            }
+
+            for (let i = 1; i <= numDevices; i++) {
+                const ip = `${prefix}${100 + i}`;
+                const type = i % 2 === 0 ? 'Switch' : 'Router';
+                const device = new Device(ip, type);
+                devices.set(ip, device);
+                updateDeviceGrid(device);
+            }
+            
+            logMessage('SYSTEM', 'Manager', 'Manager', `Created ${numDevices} devices.`);
+            startPollBtn.disabled = false;
+            sendSetBtn.disabled = false;
+        });
+
+        startPollBtn.addEventListener('click', startPolling);
+        stopPollBtn.addEventListener('click', stopPolling);
+        
+        sendSetBtn.addEventListener('click', () => {
+            const ip = setIpInput.value;
+            const oid = setOidInput.value;
+            const value = setValueInput.value;
+            const device = devices.get(ip);
+
+            if (!device) {
+                logMessage('SYSTEM', 'Manager', 'Manager', `Error: Device with IP ${ip} not found.`);
+                return;
+            }
+            if (!oid || !value) {
+                logMessage('SYSTEM', 'Manager', 'Manager', 'Error: OID and Value must be specified for SET.');
+                return;
+            }
+            
+            const delay = getNetworkDelay();
+            logMessage('SET', managerIP, ip, `Request: ${oid} = ${value}`);
+
+            setTimeout(() => {
+                const response = device.set(oid, value);
+                logMessage('SET-RESPONSE', ip, managerIP, `Response: ${response}`);
+            }, delay);
+        });
+
+        clearLogBtn.addEventListener('click', () => {
+            logOutput.innerHTML = '';
+        });
+
+    </script>
+</body>
+</html>
+
