@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale-1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SNMP Simulator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -40,19 +40,37 @@
         .vibrate {
             animation: vibrate 0.3s linear 2; /* Run animation twice */
         }
+
+        /* --- Modal Styles --- */
+        .modal-backdrop {
+            transition: opacity 0.3s ease-in-out;
+        }
+        .modal-content {
+            transition: transform 0.3s ease-in-out;
+            max-height: 80vh; /* Ensure modal content is scrollable on small screens */
+        }
     </style>
 </head>
 <body class="bg-black text-gray-100 min-h-screen p-4 sm:p-8">
 
+    <div class="max-w-7xl mx-auto mb-4 flex justify-end gap-3">
+        <button id="learn-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition duration-200 shadow-md">
+            Learn
+        </button>
+        <button id="developed-by-btn" class="bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition duration-200 shadow-md">
+            Developed by
+        </button>
+        <button id="help-btn" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg transition duration-200 shadow-md">
+            Help
+        </button>
+    </div>
     <div class="max-w-7xl mx-auto">
         <h1 class="text-3xl font-bold text-center mb-8 text-blue-400">SNMP Simulator</h1>
 
         <div class="flex flex-col lg:flex-row gap-8">
 
-            <!-- Left Panel: Control Panel -->
             <div class="lg:w-1/3 bg-gray-900 p-6 rounded-lg shadow-xl space-y-8">
                 
-                <!-- Section 1: Device Setup -->
                 <div class="space-y-4">
                     <h2 class="text-xl font-semibold text-blue-300 border-b border-gray-700 pb-2">1. Device Setup</h2>
                     <div>
@@ -70,7 +88,6 @@
                     <button id="start-sim-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-4 rounded-lg transition duration-200 shadow-md">Start Simulation</button>
                 </div>
 
-                <!-- Section 2: Polling Configuration -->
                 <div class="space-y-4">
                     <h2 class="text-xl font-semibold text-blue-300 border-b border-gray-700 pb-2">2. Polling Configuration</h2>
                     <div>
@@ -92,7 +109,6 @@
                     <button id="stop-poll-btn" class="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-4 rounded-lg transition duration-200 shadow-md" disabled>Stop Polling</button>
                 </div>
 
-                <!-- Section 3: Manual SET Operation -->
                 <div class="space-y-4">
                     <h2 class="text-xl font-semibold text-blue-300 border-b border-gray-700 pb-2">3. Manual SET Operation</h2>
                     <div>
@@ -111,21 +127,15 @@
                 </div>
             </div>
 
-            <!-- Right Panel: Display -->
             <div class="lg:w-2/3 space-y-8">
                 
-                <!-- Network Map Section -->
                 <div>
                     <h2 class="text-2xl font-semibold text-blue-300 mb-4">Network Map</h2>
-                    <!-- Set container to relative and give it a fixed height for absolute positioning of children -->
                     <div id="network-map" class="bg-gray-900 p-6 rounded-lg shadow-xl flex items-center justify-center min-h-[400px] relative">
                         
-                        <!-- Manager node, will be positioned absolute center -->
                         <div id="map-manager" class="transition-all duration-150 z-10">
-                            <!-- JS will populate this -->
-                        </div>
+                            </div>
                         
-                        <!-- Container for agents, will also be absolute to fill the parent -->
                         <div id="map-agents-container" class="absolute top-0 left-0 w-full h-full">
                              <div class="text-gray-400 italic absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
                                  Press "Start Simulation" to create devices.
@@ -134,7 +144,6 @@
                     </div>
                 </div>
 
-                <!-- Device Status Section -->
                 <div>
                     <h2 class="text-2xl font-semibold text-blue-300 mb-4">Device Status</h2>
                     <div id="device-status-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -142,10 +151,8 @@
                     </div>
                 </div>
 
-                <!-- SNMP Log Section -->
                 <div>
                     <h2 class="text-2xl font-semibold text-blue-300 mb-4">SNMP Log</h2>
-                    <!-- Inverted colors: log is gray-800, body is black -->
                     <pre id="log-output" class="w-full h-96 bg-gray-800 text-sm text-gray-100 rounded-lg shadow-inner p-4 overflow-y-scroll font-mono"></pre>
                     <button id="clear-log-btn" class="mt-4 bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg transition duration-200 shadow-md">Clear Log</button>
                 </div>
@@ -153,7 +160,234 @@
         </div>
     </div>
 
+    <div id="help-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+        <div class="modal-backdrop absolute inset-0 bg-black bg-opacity-75" data-close-modal="help-modal"></div>
+        <div class="modal-content bg-gray-900 rounded-lg shadow-xl w-full max-w-3xl transform scale-95 z-10 p-6 overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-gray-700 pb-3 mb-4">
+                <h2 class="text-2xl font-semibold text-blue-300">Help - How to Use the Simulator</h2>
+                <button data-close-modal="help-modal" class="text-gray-400 hover:text-white text-3xl">&times;</button>
+            </div>
+            <div class="space-y-4 text-gray-300">
+                <p>This simulator demonstrates the core concepts of SNMP (Simple Network Management Protocol). Here's the correct flow to use it:</p>
+                
+                <h3 class="text-xl font-semibold text-blue-300">1. Start the Simulation</h3>
+                <ul class="list-disc list-inside space-y-2 pl-4">
+                    <li><strong>Number of Devices:</strong> Enter how many simulated devices (Routers/Switches) you want to create (e.g., 5).</li>
+                    <li><strong>Manager IP:</strong> Set the IP address for the central Network Manager (e.g., 192.168.1.1).</li>
+                    <li><strong>Agent IP Prefix:</strong> Set the base IP for your devices (e.g., 192.168.1.). The simulator will create devices with IPs like 192.168.1.101, 192.168.1.102, etc.</li>
+                    <li>Click <strong>"Start Simulation"</strong>. You will see the devices appear on the Network Map and in the Device Status grid.</li>
+                </ul>
+
+                <h3 class="text-xl font-semibold text-blue-300">2. Start Polling (GET Requests)</h3>
+                <ul class="list-disc list-inside space-y-2 pl-4">
+                    <li><strong>OIDs to Poll:</strong> These are the "questions" the manager will ask each device. The defaults check for system description, uptime, and port status.</li>
+                    <li><strong>Polling Interval:</strong> How often to ask (in milliseconds). 5000ms = 5 seconds.</li>
+                    <li><strong>Network Delay:</strong> Simulates network lag for requests and responses.</li>
+                    <li>Click <strong>"Start Polling"</strong>. Watch the "SNMP Log" - you'll see [GET] requests going from the Manager to the agents and [GET-RESPONSE] replies coming back. The Network Map will flash blue for each poll.</li>
+                </ul>
+
+                <h3 class="text-xl font-semibold text-blue-300">3. Interpret the Results</h3>
+                <ul class="list-disc list-inside space-y-2 pl-4">
+                    <li><strong>SNMP Log:</strong> This is the main output.
+                        <ul>
+                            <li><span class="text-blue-400">[GET]</span>: The manager asking for data.</li>
+                            <li><span class="text-yellow-400">[SET]</span>: The manager telling a device to change something.</li>
+                            <li><span class="text-red-400">[TRAP]</span>: A device automatically reporting an important event (like a port going down). The map node will turn red and vibrate.</li>
+                        </ul>
+                    </li>
+                    <li><strong>Network Map:</strong>
+                        <ul>
+                            <li><strong>Blue Flash:</strong> A device is being polled (GET/SET).</li>
+                            <li><strong>Red Node:</strong> A device has sent a TRAP (an alert). It resets to its normal color (blue/green) on the next successful poll.</li>
+                        </ul>
+                    </li>
+                     <li><strong>Device Status:</strong> You can click on any device in this grid to print its entire MIB (its database of information) to the log.</li>
+                </ul>
+                
+                <h3 class="text-xl font-semibold text-blue-300">4. Send a Manual SET Request</h3>
+                <ul class="list-disc list-inside space-y-2 pl-4">
+                    <li>This lets you manually change data on a device.</li>
+                    <li><strong>Device IP:</strong> Enter the *exact* IP of a device (e.g., 192.168.1.101).</li>
+                    <li><strong>OID to SET:</strong> Enter an OID that is writable. Try `1.3.6.1.2.1.1.5.0` (the device name).</li>
+                    <li><strong>New Value:</strong> Enter the new name (e.g., "Main-Router-Floor1").</li>
+                    <li>Click <strong>"Send SET Request"</strong>. You'll see the [SET] request and [SET-RESPONSE] in the log. The map will flash yellow.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div id="learn-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+        <div class="modal-backdrop absolute inset-0 bg-black bg-opacity-75" data-close-modal="learn-modal"></div>
+        <div class="modal-content bg-gray-900 rounded-lg shadow-xl w-full max-w-3xl transform scale-95 z-10 p-6 overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-gray-700 pb-3 mb-4">
+                <h2 class="text-2xl font-semibold text-blue-300">Project Learning Center</h2>
+                <button data-close-modal="learn-modal" class="text-gray-400 hover:text-white text-3xl">&times;</button>
+            </div>
+            <div class="space-y-6 text-gray-300">
+                
+                <div>
+                    <h3 class="text-xl font-semibold text-blue-300 mb-2">How We Built This Project</h3>
+                    <p>This project is a lightweight, front-end-only network simulator built with pure <strong>HTML, JavaScript, and Tailwind CSS</strong>. It runs entirely in your browser without any backend server.</p>
+                    <ul class="list-disc list-inside space-y-1 pl-4 mt-2">
+                        <li><strong>JavaScript Classes:</strong> A `Device` class is used to create simulated router and switch objects. Each object maintains its own "MIB" (a JavaScript `Map` or `Object`) to store data.</li>
+                        <li><strong>Event-Driven Logic:</strong> All actions are triggered by button clicks. `setInterval` is used for the "Start Polling" loop. `setTimeout` is used to simulate network latency.</li>
+                        <li><strong>DOM Manipulation:</strong> The Network Map, Device Grid, and SNMP Log are all dynamically generated by JavaScript functions that create, add, and remove HTML elements.</li>
+                        <li><strong>CSS Animations:</strong> The flashing and vibrating effects on the map are done with CSS `keyframes` and by dynamically adding/removing CSS classes with JavaScript.</li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3 class="text-xl font-semibold text-blue-300 mb-2">Materials (from Prescribed Text Book)</h3>
+                    <p class="italic">[This is a placeholder. You should replace this text with relevant theory, diagrams, and notes from your textbook. For example, you could explain the SNMP protocol structure (Manager, Agent, MIB, OID) or the different PDU types (GET, SET, TRAP).]</p>
+                    <p class="mt-2"><strong>Key Concepts:</strong></p>
+                    <ul class="list-disc list-inside space-y-1 pl-4">
+                        <li><strong>Manager:</strong> The console (this webpage) that monitors the network.</li>
+                        <li><strong>Agent:</strong> The software running on the simulated devices (Routers/Switches).</li>
+                        <li><strong>MIB (Management Information Base):</strong> A hierarchical database of information on an agent. We simulate this with a JavaScript object.</li>
+                        <li><strong>OID (Object Identifier):</strong> A unique, dot-separated address for a piece of data in the MIB (e.g., `1.3.6.1.2.1.1.1.0` for System Description).</li>
+                    </ul>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-blue-300 mb-2">Reference Video</h3>
+                    <p>An overview of the SNMP protocol.</p>
+                    <div class="aspect-w-16 aspect-h-9 bg-gray-800 rounded-lg mt-2">
+                        <iframe width="100%" height="315" src="https://www.youtube.com/embed/Keyf_P_hF3A" 
+                                title="YouTube video player" frameborder="0" 
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                                allowfullscreen class="rounded-lg">
+                        </iframe>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-xl font-semibold text-blue-300 mb-2">References</h3>
+                     <ul class="list-disc list-inside space-y-1 pl-4 text-sm">
+                        <li><a href="https://docs.lextudio.com/snmpsim/" target="_blank" class="text-blue-400 hover:underline">SNMP Simulator Documentation</a></li>
+                        <li><a href="https://www.easysnmp.com/downloads/easysnmp-fundamentals-second-edition.pdf" target="_blank" class="text-blue-400 hover:underline">EasySNMP Fundamentals (PDF)</a></li>
+                        <li><a href="https://tailwindcss.com/" target="_blank" class="text-blue-400 hover:underline">Tailwind CSS Documentation</a></li>
+                        <li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript" target="_blank" class="text-blue-400 hover:underline">MDN Web Docs (JavaScript)</a></li>
+                     </ul>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div id="developed-by-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+        <div class="modal-backdrop absolute inset-0 bg-black bg-opacity-75" data-close-modal="developed-by-modal"></div>
+        <div class="modal-content bg-gray-900 rounded-lg shadow-xl w-full max-w-3xl transform scale-95 z-10 p-6 overflow-y-auto">
+            <div class="flex items-center justify-between border-b border-gray-700 pb-3 mb-4">
+                <h2 class="text-2xl font-semibold text-blue-300">Developed By</h2>
+                <button data-close-modal="developed-by-modal" class="text-gray-400 hover:text-white text-3xl">&times;</button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+                
+                <div class="bg-gray-800 p-4 rounded-lg shadow-lg">
+                    <img id="photo-harshit" src="images/harshit.jpg" alt="Photo of Harshit Tiwari" 
+                         class="w-32 h-32 rounded-full mx-auto mb-3 bg-gray-700 object-cover border-2 border-blue-400"
+                         onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2EwYTBiYyI+PHBhdGggZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6bTAgM2MxLjY2IDAgMyAxLjM0IDMgM3MtMS4zNCAzLTMgMy0zLTEuMzQtMy0zIDEuMzQtMyAzLTN6bTAgMTRjLTIuNjcgMC01LjAxLTEuNDQtNi4zMy0zLjY5QzcuNTYgMTMuODEgOS42OCAxMyAxMiAxM3MyLjQ0LjgyIDQuMzMgMi4zMUMxNy4wMSA5LjU2IDE0LjY3IDE5IDEyIDE5eiIvPjwvc3ZnPg=='; this.onerror=null;">
+                    <h3 class="text-xl font-semibold text-white">Harshit Tiwari</h3>
+                    <p class="text-blue-300">24BCE1363</p>
+                </div>
+
+                <div class="bg-gray-800 p-4 rounded-lg shadow-lg">
+                    <img id="photo-nityanshu" src="images/kushagra.jpg" alt="Photo of Nityanshu Tripathi" 
+                         class="w-32 h-32 rounded-full mx-auto mb-3 bg-gray-700 object-cover border-2 border-blue-400"
+                         onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2EwYTBiYyI+PHBhdGggZD0iTTEyIDJDNi40OCAyIDIgNi44OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6bTAgM2MxLjY2IDAgMyAxLjM0IDMgM3MtMS4zNCAzLTMgMy0zLTEuMzQtMy0zIDEuMzQtMyAzLTN6bTAgMTRjLTIuNjcgMC01LjAxLTEuNDQtNi4zMy0zLjY5QzcuNTYgMTMuODEgOS42OCAxMyAxMiAxM3MyLjQ0LjgyIDQuMzMgMi4zMUMxNy4wMSA5LjU2IDE0LjY3IDE5IDEyIDE5eiIvPjwvc3ZnPg=='; this.onerror=null;">
+                    <h3 class="text-xl font-semibold text-white">Nityanshu Tripathi</h3>
+                    <p class="text-blue-300">24BCE1340</p>
+                </div>
+
+                <div class="bg-gray-800 p-4 rounded-lg shadow-lg">
+                    <img id="photo-kushagra" src="images/nityanshu.jpg" alt="Photo of Kushagra Shrivastava" 
+                         class="w-32 h-32 rounded-full mx-auto mb-3 bg-gray-700 object-cover border-2 border-blue-400"
+                         onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2EwYTBiYyI+PHBhdGggZD0iTTEyIDJDNi40OCAyIDIgNi44OCAyIDEyczQuNDggMTAgMTAgMTAgMTAtNC40OCAxMC0xMFMxNy41MiAyIDEyIDJ6bTAgM2MxLjY2IDAgMyAxLjM0IDMgM3MtMS4zNCAzLTMgMy0zLTEuMzQtMy0zIDEuMzQtMyAzLTN6bTAgMTRjLTIuNjcgMC01LjExLTEuNDQtNi4zMy0zLjY5QzcuNTYgMTMuODEgOS42OCAxMyAxMiAxM3MyLjQ0LjgyIDQuMzMgMi4zMUMxNy4wMSA5LjU2IDE0LjY3IDE5IDEyIDE5eiIvPjwvc3ZnPg=='; this.onerror=null;">
+                    <h3 class="text-xl font-semibold text-white">Kushagra Shrivastava</h3>
+                    <p class="text-blue-300">24BCE1344</p>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+
     <script>
+        // ============================================
+        // =========== NEW MODAL JAVASCRIPT ===========
+        // ============================================
+        document.addEventListener('DOMContentLoaded', () => {
+            const modalTriggers = {
+                'help-btn': 'help-modal',
+                'learn-btn': 'learn-modal',
+                'developed-by-btn': 'developed-by-modal',
+            };
+
+            const allModals = document.querySelectorAll('#help-modal, #learn-modal, #developed-by-modal');
+
+            // Function to open a modal
+            const openModal = (modalId) => {
+                const modal = document.getElementById(modalId);
+                if (modal) {
+                    modal.classList.remove('hidden');
+                    // Animate entry
+                    setTimeout(() => {
+                        modal.querySelector('.modal-backdrop').classList.remove('opacity-0');
+                        modal.querySelector('.modal-content').classList.remove('scale-95');
+                        modal.querySelector('.modal-content').classList.add('scale-100');
+                    }, 10);
+                }
+            };
+
+            // Function to close a modal
+            const closeModal = (modalId) => {
+                const modal = document.getElementById(modalId);
+                if (modal) {
+                    // Animate exit
+                    modal.querySelector('.modal-backdrop').classList.add('opacity-0');
+                    modal.querySelector('.modal-content').classList.remove('scale-100');
+                    modal.querySelector('.modal-content').classList.add('scale-95');
+                    setTimeout(() => {
+                        modal.classList.add('hidden');
+                    }, 300); // Wait for animation to finish
+                }
+            };
+
+            // Attach listeners to open buttons
+            for (const [btnId, modalId] of Object.entries(modalTriggers)) {
+                const btn = document.getElementById(btnId);
+                if (btn) {
+                    btn.addEventListener('click', () => openModal(modalId));
+                }
+            }
+
+            // Attach listeners to close buttons and backdrops
+            allModals.forEach(modal => {
+                modal.querySelectorAll('[data-close-modal]').forEach(element => {
+                    element.addEventListener('click', () => {
+                        closeModal(element.dataset.closeModal);
+                    });
+                });
+            });
+
+            // Optional: Close modal on Escape key press
+            document.addEventListener('keydown', (e) => {
+                if (e.key === "Escape") {
+                    allModals.forEach(modal => {
+                        if (!modal.classList.contains('hidden')) {
+                            closeModal(modal.id);
+                        }
+                    });
+                }
+            });
+        });
+
+
+        // ==============================================
+        // =========== ORIGINAL SNMP SIM SCRIPT ===========
+        // ==============================================
+
         const devices = new Map();
         let managerIP = '';
         let pollingIntervalId = null;
@@ -326,7 +560,7 @@
                 
                 // Manager flashes (border) and vibrates, then reverts
                 // NEW: Make manager flash red completely, not just border
-                managerEl.className = `${managerBaseClass} bg-red-600 text-white border-red-400 ${vibrateClass}`;
+                managerEl.className = `${managerBaseFClass} bg-red-600 text-white border-red-400 ${vibrateClass}`;
                 
                 setTimeout(() => {
                     // Revert manager after animation
@@ -540,5 +774,3 @@
     </script>
 </body>
 </html>
-
-
